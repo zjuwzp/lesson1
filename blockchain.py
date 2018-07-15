@@ -54,3 +54,37 @@ class Blockchain:
     def hash(block):                 #计算区块的哈希值
         block_string = json.dumps(block,sort_keys = True)       #将json转化为字符串数组
         return hashlib.sha256(block_string).hexdigest()            #得到摘要信息
+
+        """
+        简单的工作量证明:不停的尝试一个proof的值，看看这个值与上一个proof进行计算时是否满足以4个0开头，
+        如果满足就返回这个proof的值，如果不满足就加1进行下一次验证运算
+        
+        """
+
+    def proof_of_work(self, last_proof: int) -> int:
+        """
+        简单的工作量证明:
+         - 查找一个 p' 使得 hash(pp') 以4个0开头
+         - p 是上一个块的证明,  p' 是当前的证明
+        """
+        proof = 0
+        while self.valid_proof(last_proof, proof) is False:
+            proof += 1
+        print(proof)
+        return proof
+
+    @staticmethod
+    def valid_proof(last_proof: int, proof: int) -> bool:
+        """
+        验证证明: 是否hash(last_proof, proof)以4个0开头
+        :param last_proof: Previous Proof
+        :param proof: Current Proof
+        :return: True if correct, False if not.
+        """
+        guess = f'{last_proof}{proof}'.encode()
+        guess_hash = hashlib.sha256(guess).hexdigest()
+        print(guess_hash)
+        return guess_hash[:4] == "0000"
+
+testPow = Blockchain()
+testPow.proof_of_work(200)          #假设上一个last_proof为100
