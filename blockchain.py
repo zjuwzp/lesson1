@@ -19,6 +19,7 @@ from flask import Flask, jsonify, request
 from uuid import uuid4
 from urllib.parse import urlparse
 import requests
+from typing import Any, Dict, List, Optional
 
 class Blockchain:
     def __init__(self):             #每个类中都应该包含一个构造函数
@@ -226,5 +227,31 @@ def register_nodes():
     }
     return jsonify(response), 201           #POST的请求很多返回的是201
 
+@app.route('/nodes/resolve', methods=['GET'])
+def consensus():
+    replaced = blockchain.resolve_conflicts()
+
+    if replaced:
+        response = {                    #我们的链条被替代了
+            'message': 'Our chain was replaced',
+            'new_chain': blockchain.chain
+        }
+    else:
+        response = {
+            'message': 'Our chain is authoritative',
+            'chain': blockchain.chain
+        }
+
+    return jsonify(response), 200
+
 if __name__ == '__main__':
-    app.run(host='127.0.0.1', port=5000)          #0.0.0.0表示接受所有的ip
+    # app.run(host='127.0.0.1', port=5000)          #0.0.0.0表示接受所有的ip
+    from argparse import ArgumentParser
+
+    parser = ArgumentParser()
+    parser.add_argument('-p', '--port', default=5000, type=int, help='port to listen on')
+    args = parser.parse_args()
+    port = args.port
+
+    #通过开启多个命令行终端，输入不同的端口来模仿不同的节点
+    app.run(host='127.0.0.1', port=port)        #这样端口就不是固定的5000，而是参数传递过来的
