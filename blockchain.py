@@ -17,14 +17,24 @@ import hashlib
 import json
 from flask import Flask, jsonify, request
 from uuid import uuid4
+from urllib.parse import urlparse
 
 class Blockchain:
     def __init__(self):             #每个类中都应该包含一个构造函数
         self.chain = []             #这个数组中每个元素就是一个块
+        self.nodes = set()          #保存节点信息，set中没有重复元素
         self.current_transactions = []      #数组存储当前交易的信息
 
         # 创建创世块，proof随便写。这个区块不用计算，因为里面没有任何内容
         self.new_block(previous_hash='1', proof=100)
+
+    def register_node(self, address: str) -> None:
+        """
+        Add a new node to the list of nodes
+        :param address: Address of node. Eg. 'http://192.168.0.5:5000'
+        """
+        parsed_url = urlparse(address)
+        self.nodes.add(parsed_url.netloc)       #parsed_url.netloc取得的地址形式是：ip：port
 
     def new_block(self, proof, previous_hash = None):            #添加块的方法
         block = {
@@ -142,5 +152,22 @@ def full_chain():                           #把当前的区块链信息返回�
     }
     return jsonify(response),200    #jsonify可以把json转化为字符串。(http请求返回的应该是个字符串)
 
+#{ "nodes":["http://127.0.0.2:5000"] }
+@app.route('/nodes/register', methods=['POST'])
+def register_nodes():
+    values = request.get_json()
+    nodes = values.get('nodes')
+    if nodes is None:
+        return "Error: Please supply a valid list of nodes", 400
+
+    for node in nodes:
+        blockchain.register_node(node)
+
+    response = {
+        'message': 'New nodes have been added',
+        'total_nodes': list(blockchain.nodes),
+    }
+    return jsonify(response), 201           #POST的请求很多返回的是201
+
 if __name__ == '__main__':
-    app.run(host='127.0.0.1', port=5000)          #0.0.0.0表示接受所有的ip
+    app.run(host='0.0.0.0', port=5000)          #0.0.0.0表示接受所有的ip
