@@ -15,6 +15,7 @@
 from time import time
 import hashlib
 import json
+from flask import Flask, jsonify, request
 
 class Blockchain:
     def __init__(self):             #每个类中都应该包含一个构造函数
@@ -70,7 +71,6 @@ class Blockchain:
         proof = 0
         while self.valid_proof(last_proof, proof) is False:
             proof += 1
-        print(proof)
         return proof
 
     @staticmethod
@@ -83,8 +83,27 @@ class Blockchain:
         """
         guess = f'{last_proof}{proof}'.encode()
         guess_hash = hashlib.sha256(guess).hexdigest()
-        print(guess_hash)
         return guess_hash[:4] == "0000"
 
-testPow = Blockchain()
-testPow.proof_of_work(200)          #假设上一个last_proof为100
+app = Flask(__name__)
+
+#这个路由只是做测试的，没什么用
+@app.route('/index', methods=['GET'])       #这是一个路由，可映射到一个方法
+def index():
+    return "Hello Blockchain"
+
+@app.route('/transactions/new', methods=['POST'])   #这里用post请求，因为要上传数据
+def new_transaction():
+    return "We'll add a new transactions"
+
+@app.route('/mine', methods=['GET'])                #挖矿、哈西打包
+def mine():
+    return "We'll mine a new block"
+
+@app.route('/chain', methods=['GET'])
+def full_chain():
+    return "return full chain"
+
+if __name__ == '__main__':
+    app.run(host='127.0.0.1', port=5000)          #0.0.0.0表示接受所有的ip
+
