@@ -16,6 +16,7 @@ from time import time
 import hashlib
 import json
 from flask import Flask, jsonify, request
+from uuid import uuid4
 
 class Blockchain:
     def __init__(self):             #每个类中都应该包含一个构造函数
@@ -37,7 +38,7 @@ class Blockchain:
         self.chain.append(block)                        #把刚打包好的区块加入到链条中
         return block
 
-    def new_transaction(self,sender,recipient,amount) -> int:      #新添加一个区块
+    def new_transaction(self,sender,recipient,amount) -> int:      #新添加一个交易，返回所在的区块索引
         self.current_transactions.append(
             {
                 "sender":sender,
@@ -49,7 +50,7 @@ class Blockchain:
 
     @property
     def last_block(self):           #最后一个区块
-        return self.chain(-1)
+        return self.chain[-1]
 
     @staticmethod
     def hash(block):                 #计算区块的哈希值
@@ -61,7 +62,6 @@ class Blockchain:
         如果满足就返回这个proof的值，如果不满足就加1进行下一次验证运算
         
         """
-
     def proof_of_work(self, last_proof: int) -> int:
         """
         简单的工作量证明:
@@ -86,6 +86,8 @@ class Blockchain:
         return guess_hash[:4] == "0000"
 
 app = Flask(__name__)
+blockchain = Blockchain()
+node_identifier = str(uuid4()).replace('-', '')
 
 #这个路由只是做测试的，没什么用
 @app.route('/index', methods=['GET'])       #这是一个路由，可映射到一个方法
@@ -94,16 +96,51 @@ def index():
 
 @app.route('/transactions/new', methods=['POST'])   #这里用post请求，因为要上传数据
 def new_transaction():
-    return "We'll add a new transactions"
+    values = request.get_json()
+    # 检查POST数据
+    required = ['sender', 'recipient', 'amount']
 
-@app.route('/mine', methods=['GET'])                #挖矿、哈西打包
+    if values is None:
+        return 'Missing values', 400
+
+    if not all(k in values for k in required):
+        return 'Missing values', 400
+    #返回的是所在区块的索引
+    index = blockchain.new_transaction(values['sender'], values['recipient'], values['amount'])
+
+    response = {'message': f'Transaction will be added to Block {index}'}
+    return jsonify(response), 201           #通常post请求，添加一条记录都是返回201
+
+@app.route('/mine', methods=['GET'])                #挖矿、哈西打包(1、先算工作量证明。2、给自己添加一个奖励的交易)
 def mine():
-    return "We'll mine a new block"
+    last_block = blockchain.last_block
+    last_proof = last_block['proof']           #上一个块的工作量证明
+    proof = blockchain.proof_of_work(last_proof)    #当前块的工作量证明
+
+    # 给工作量证明的节点提供奖励.
+    # 发送者为 "0" 表明是新挖出的币
+    blockchain.new_transaction(
+                                sender="0",
+                                recipient=node_identifier,
+                                amount=1)
+    block = blockchain.new_block(proof, None)    #None为上一个区块的哈希值
+
+    response = {
+        'message': "New Block Forged",
+        'index': block['index'],
+        'transactions': block['transactions'],
+        'proof': block['proof'],
+        'previous_hash': block['previous_hash'],
+    }
+    return jsonify(response), 200
 
 @app.route('/chain', methods=['GET'])
-def full_chain():
-    return "return full chain"
+def full_chain():                           #把当前的区块链信息返回给请求者
+    response = {
+        'chain':blockchain.chain,           #完整的区块链
+        'length':len(blockchain.chain)
+    }
+    return jsonify(response),200    #jsonify可以把json转化为字符串。(http请求返回的应该是个字符串)
 
 if __name__ == '__main__':
     app.run(host='127.0.0.1', port=5000)          #0.0.0.0表示接受所有的ip
-
